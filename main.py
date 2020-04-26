@@ -34,7 +34,7 @@ parser.add_argument('--hidden_size', type=int, default=8, help='')
 parser.add_argument('--output_size', type=int, default=30, help='')
 parser.add_argument('--saveDir', type=str, default="png", help='')
 parser.add_argument('--patience', type=int, default=5, help='')
-parser.add_argument('--daytolook', type=int, default=15, help='')
+parser.add_argument('--daytolook', type=int, default=10, help='')
 parser.add_argument('--optim', type=str, default="Adam")  # Adam, SGD, RMSprop
 parser.add_argument('--lr', type=float, metavar='LR', default=0.01,
                     help='learning rate (no default)')
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     savePath = args.savePath
 
     #train_path = "../data/dummy/classification_test.csv"
-    train_path = "../data/regression/train"
-    test_path = "../data/regression/test"
-    valid_path = "../data/regression/valid"
+    train_path = "../data/0412/regression/train"
+    test_path = "../data/0412/regression/test"
+    valid_path = "../data/0412/regression/valid"
 
     for ei in range(args.max_epochs):
         bad_counter = 0

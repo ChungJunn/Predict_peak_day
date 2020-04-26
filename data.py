@@ -4,12 +4,23 @@ import torch
 class FSIterator:
     def __init__(self, filename, batch_size=32, just_epoch=False):
         self.batch_size = batch_size
-        self.just_epoch = just_epoch        
-        self.fp_end = open(filename + "/end.csv", 'r')
-        self.fp_start = open(filename + "/start.csv", 'r')
-        self.fp_low = open(filename + "/low.csv", 'r')
-        self.fp_high = open(filename + "/high.csv", 'r')
-        self.fps = [self.fp_end, self.fp_start, self.fp_low, self.fp_high]
+        self.just_epoch = just_epoch       
+ 
+        self.end = open(filename + "/END.csv", 'r')
+        self.h_e = open(filename + "/H_E.csv", 'r')
+        self.high = open(filename + "/HIGH.csv", 'r')
+        self.l_e = open(filename + "/L_E.csv", 'r')
+        self.low = open(filename + "/LOW.csv", 'r')
+        self.ma5 = open(filename + "/MA5.csv", 'r')
+        self.ma10 = open(filename + "/MA10.csv", 'r')
+        self.s_e = open(filename + "/S_E.csv", 'r')
+        self.start = open(filename + "/START.csv", 'r')
+        self.trade = open(filename + "/TRADE.csv", 'r')
+        self.turnover = open(filename + "/TURNOVER.csv", 'r')
+
+
+        self.fps = [self.end, self.h_e, self.high, self.l_e, self.low, self.ma5, self.ma10, self.s_e, self.start, self.trade, self.turnover]
+
 
     def __iter__(self):
         return self
@@ -19,20 +30,23 @@ class FSIterator:
             fp.seek(0)
 
     def __next__(self):
- 
+        import pdb; pdb.set_trace()
         bat_seq = []
+
         touch_end = 0
 
         while(len(bat_seq)< self.batch_size):
-            seq_end = self.fps[0].readline()
-            seq_start = self.fps[1].readline()
-            seq_low = self.fps[2].readline()
-            seq_high = self.fps[3].readline()
-                
+            split_seq = []
+            pre_seq = []
+        
+        
+            for i in range (0,len(self.fps)):
+                pre_seq.append([self.fps[i].readline()])
+
             if touch_end:
                 raise StopIteration
 
-            if seq_end == "":
+            if len(pre_seq[0]) == 0:
                 print("touch end")
                 touch_end = 1
 
@@ -46,27 +60,26 @@ class FSIterator:
                 '''                                                                                                                                                                                                                                                                                                                                              
                 self.reset()
                 # read the first line
-                seq_end = self.fps[0].readline()
-                seq_start = self.fps[1].readline()
-                seq_low = self.fps[2].readline()
-                seq_high = self.fps[3].readline()
+                for i in range (0,len(self.fps)):
+                    pre_seq.append([self.fps[i].readline()])
+            
 
-            seq_end = [float(s) for s in seq_end.split(',')]
-            seq_start = [float(s) for s in seq_start.split(',')]
-            seq_low = [float(s) for s in seq_low.split(',')]
-            seq_high = [float(s) for s in seq_high.split(',')]
+            for i in range (0,len(self.fps)):
+                split_seq.append([float(s) for s in pre_seq[i][0].split(',')])
 
             #if(np.count_nonzero(~np.isnan(seq_end))>7 and seq_end[-1] == 1):
             #if(np.count_nonzero(~np.isnan(seq_end)) >= 10 and np.count_nonzero(~np.isnan(seq_end)) < 21): # short data
             #if(np.count_nonzero(~np.isnan(seq_end)) >= 21): # long data
                 #if(np.count_nonzero(~np.isnan(seq_f))>4):
-            if(sum(~np.isnan(seq_end)) == sum(~np.isnan(seq_start)) == sum(~np.isnan(seq_low))== sum(~np.isnan(seq_high))):
-                if(max(seq_end)<=2):
-                    seqs = [seq_end, seq_start, seq_low, seq_high]
-                    bat_seq.append(seqs)
-                
-        x_data, y_data, mask_data = self.prepare_data(np.array(bat_seq))#B x [[E*daylen],[S*daylen],[L*daylen],[H*daylen]]
+            if(~(np.isnan(split_seq).any())):
+                import pdb; pdb.set_trace()
+
+            seqs = split_seq
+            bat_seq.append(seqs)
         
+        
+        x_data, y_data, mask_data = self.prepare_data(np.array(bat_seq))#B x [[E*daylen],[S*daylen],[L*daylen],[H*daylen]]
+        import pdb; pdb.set_trace()
         device = torch.device("cuda")
         x_data = torch.tensor(x_data).type(torch.float32).to(device)
         y_data = torch.tensor(y_data).type(torch.LongTensor).to(device)
@@ -108,7 +121,7 @@ class FSIterator:
         target = []
         temp = []
         seq_end_x = seq[:,0,:-1]
-        #import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         for l in seq_end_x:
             temp = [(np.argmax(l) - i) for i in range(0, len(l))]
             temp = [i if i >= 0 else 0 for i in temp]
@@ -120,44 +133,55 @@ class FSIterator:
     
     def prepare_data(self, seq):
         PRE_STEP = 1 # this is for delta
-        #import pdb; pdb.set_trace()
-        seq_end_x = seq[:,0,:-1]
-        seq_start_x = seq[:,1,:-1]
-        seq_low_x = seq[:,2,:-1]
-        seq_high_x = seq[:,3,:-1]
-        
-       
+        import pdb; pdb.set_trace()
+        seq_x = []
+        seq_delta = []
+        x_data = []
+
+        for i in range(0,len(self.fps)):
+            seq_x.append(seq[:,i,:-1]) #append each factors of all batches # B, Factors, -1
+
+
         seq_y =  self.make_target(seq)
         
 
         # resize into the longest day length
-        seq_end_x = self.trimBatch(seq_end_x)
-        seq_start_x = self.trimBatch(seq_start_x)
-        seq_low_x = self.trimBatch(seq_low_x)
-        seq_high_x = self.trimBatch(seq_high_x)
-        
-        seq_mask = self.getMask(seq_end_x[:,1:-PRE_STEP])
-        
-        seq_end_x = np.nan_to_num(seq_end_x)
-        seq_start_x = np.nan_to_num(seq_start_x)
-        seq_low_x = np.nan_to_num(seq_low_x)
-        seq_high_x = np.nan_to_num(seq_high_x)
+        for i in range(0,len(self.fps)):
+            seq_x[i] = self.trimBatch(seq_x[i])
 
-        seq_end_x_delta = seq_end_x[:,1:] - seq_end_x[:,:-1]
-        seq_start_x_delta = seq_start_x[:,1:] - seq_start_x[:,:-1]
-        seq_low_x_delta = seq_low_x[:,1:] - seq_low_x[:,:-1]
-        seq_high_x_delta = seq_high_x[:,1:] - seq_high_x[:,:-1]
+        seq_mask = self.getMask(seq_x[0][:,1:-PRE_STEP])
+
+
+        for i in range(0,len(self.fps)):
+            seq_x[i] = np.nan_to_num(seq_x[i])
+
+
+        for i in range(0,len(self.fps)):
+
+            seq_delta.append(seq_x[i][:,1:] - seq_x[i][:,:-1])
+
+        
         try : 
+            for i in range(0,len(self.fps)):
+
+                x_data.append(seq_x[i][:,1:-PRE_STEP])
+                x_data.append(seq_delta[i][:,:-PRE_STEP]) # factors, batch_Size, daylen
+ 
+            '''
             x_data = np.stack([seq_end_x[:,1:-PRE_STEP], seq_end_x_delta[:,:-PRE_STEP],
                            seq_start_x[:,1:-PRE_STEP], seq_start_x_delta[:,:-PRE_STEP],
                            seq_low_x[:,1:-PRE_STEP], seq_low_x_delta[:,:-PRE_STEP],
                            seq_high_x[:,1:-PRE_STEP], seq_high_x_delta[:,:-PRE_STEP]], axis=2) #batch * daylen * inputdim(2)
+            '''
         except:
+            print("error")
             import pdb; pdb.set_trace()
-        x_data = x_data.transpose(1,0,2) # daylen * batch * inputdim
-        
+
+    # factors, batch, daylen
+        #x_data = np.array(x_data).transpose(1,0,2) # daylen * batch * inputdim
+        x_data = np.array(x_data).transpose(2,1,0)
         #y_data = seq_y.reshape(1,-1) # batch * 1
-        y_data = np.stack([seq_y.transpose(1,0)])# 1*batch*1
+        y_data = np.stack([seq_y.transpose(1,0)])# 1*batch*datlen...?????!
 
         #y_data = (seq_delta[:,1:] > 0)*1.0 # the diff
         
@@ -174,15 +198,19 @@ if __name__ == "__main__":
     import numpy as np
 
     #filename = os.environ['HOME']+'/FinSet/data/GM.csv.seq.shuf'
-    filename = "../data/dummy/classification_train.csv"
+    filename = "../data/0412/regression/train"
     #df_train = pd.read_csv("../data/dummy/classification_train.csv")
     bs = 4
     train_iter = FSIterator(filename, batch_size=bs, just_epoch=True)
 
-    i = 0
-    for tr_x, tr_y, tr_m, end_of_data in train_iter:
-        print(i, tr_x, tr_y, tr_m)
-        i = i + 1
-        if i > 2:
-            break
+    for input, target, mask in train_iter: 
+        print(input)
+        print(input.shape)
+        print(target.shape)
+        print(mask.shape)
+
+
+
+        break
+
                     

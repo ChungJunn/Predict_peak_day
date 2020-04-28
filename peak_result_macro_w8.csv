@@ -1,0 +1,5 @@
+batch_size: 8, max_epoches: 8, hidden_size: 8, patience: 5, daytolook: 5, optimizer: Adam, learning_rate: 0.01
+accuracy,"[0.16875360906124115, 0.19185377657413483, 0.20005758106708527, 0.2070380002260208, 0.2263960987329483]"
+recall per days,"tensor([0.1415, 0.1495, 0.1559, 0.1589, 0.1737])"
+f1,"tensor([0.0841, 0.1181, 0.1245, 0.1312, 0.1476])"
+precision,"tensor([0.0736, 0.1172, 0.1241, 0.1326, 0.1517])"
